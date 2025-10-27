@@ -1,4 +1,7 @@
 ﻿using System.Buffers;
+using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -15,7 +18,7 @@ namespace MyAiBuiltProject
         }
     }
 
-    // Basic JSON-RPC 2.0 request/response models
+    // Basic JSON-RPC2.0 request/response models
     internal sealed class JsonRpcRequest
     {
         [JsonPropertyName("jsonrpc")] public string JsonRpc { get; set; } = "2.0";
@@ -42,6 +45,10 @@ namespace MyAiBuiltProject
     // A minimal MCP server implementation
     internal sealed class McpJsonRpcServer
     {
+        private const string ProtocolVersionLabel = "2024-11-05";
+        private const string ServerName = "MyAiBuiltProject.McpServer";
+        private const string ServerVersion = "0.1.0";
+
         private readonly Stream _stdin = Console.OpenStandardInput();
         private readonly Stream _stdout = Console.OpenStandardOutput();
         private readonly Stream _stderr = Console.OpenStandardError();
@@ -54,6 +61,8 @@ namespace MyAiBuiltProject
 
         public async Task RunAsync(CancellationToken cancellationToken = default)
         {
+            //await WriteStartupBannerAsync().ConfigureAwait(false);
+
             var reader = new StreamReader(_stdin, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, bufferSize: 8192, leaveOpen: true);
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -84,8 +93,8 @@ namespace MyAiBuiltProject
                             // Minimal MCP initialize response with tools, resources, and prompts capabilities
                             var initResult = new
                             {
-                                protocolVersion = "2024-11-05", // MCP protocol version label
-                                serverInfo = new { name = "MyAiBuiltProject.McpServer", version = "0.1.0" },
+                                protocolVersion = ProtocolVersionLabel, // MCP protocol version label
+                                serverInfo = new { name = ServerName, version = ServerVersion },
                                 capabilities = new
                                 {
                                     tools = new { },
@@ -157,6 +166,70 @@ namespace MyAiBuiltProject
             }
         }
 
+        private async Task WriteStartupBannerAsync()
+        {
+            // Compute registration details without writing to stdout (use stderr to avoid breaking MCP framing)
+            var entryPath = Assembly.GetEntryAssembly()?.Location
+                ?? Process.GetCurrentProcess().MainModule?.FileName
+                ?? string.Empty;
+            var wd = Path.GetDirectoryName(entryPath) ?? Environment.CurrentDirectory;
+            var ext = Path.GetExtension(entryPath);
+            var isDll = string.Equals(ext, ".dll", StringComparison.OrdinalIgnoreCase);
+            var isExe = string.Equals(ext, ".exe", StringComparison.OrdinalIgnoreCase);
+
+            string command;
+            string arguments;
+            if (isDll)
+            {
+                command = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dotnet" : "dotnet";
+                arguments = Quote(entryPath);
+            }
+            else if (isExe)
+            {
+                command = Quote(entryPath);
+                arguments = string.Empty;
+            }
+            else
+            {
+                // Fallback: assume framework-dependent .dll
+                command = "dotnet";
+                arguments = Quote(entryPath);
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine("=== MCP Server Startup ===");
+            sb.AppendLine($"Server: {ServerName} v{ServerVersion}");
+            sb.AppendLine($"Protocol: MCP {ProtocolVersionLabel} (JSON-RPC2.0 over stdio)");
+            sb.AppendLine($"Runtime: .NET {Environment.Version} on {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture})");
+            sb.AppendLine();
+            sb.AppendLine("Register in Visual Studio (MCP Server):");
+            sb.AppendLine($" Transport: stdio");
+            sb.AppendLine($" Command: {command}");
+            sb.AppendLine($" Arguments: {arguments}");
+            sb.AppendLine($" WorkingDir:{wd}");
+            sb.AppendLine();
+            sb.AppendLine("Capabilities provided:");
+            sb.AppendLine(" - Tools: echo { message: string }");
+            sb.AppendLine(" - Resources: resource://hello.txt (text/plain)");
+            sb.AppendLine(" - Prompts: greet(name)");
+            sb.AppendLine();
+            sb.AppendLine("Smoke test suggestions:");
+            sb.AppendLine(" - Use tool echo with message: hello");
+            sb.AppendLine(" - Insert resource hello.txt");
+            sb.AppendLine(" - Run prompt greet with name=World");
+            sb.AppendLine("===========================");
+
+            await WriteStderrAsync(sb.ToString()).ConfigureAwait(false);
+        }
+
+        private static string Quote(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return path;
+            return path.Contains(' ') && !(path.StartsWith('"') && path.EndsWith('"'))
+                ? $"\"{path}\""
+                : path;
+        }
+
         private async Task HandleToolsCallAsync(JsonRpcRequest request)
         {
             if (request.Params is null)
@@ -206,7 +279,7 @@ namespace MyAiBuiltProject
                     break;
 
                 default:
-                    await WriteErrorAsync(request.Id, -32601, $"Unknown tool: {toolName}").ConfigureAwait(false);
+                    await WriteErrorAsync(request.Id, -32601, $"Unknown tool: {toolName}"). ConfigureAwait(false);
                     break;
             }
         }
