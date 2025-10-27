@@ -12,6 +12,7 @@ namespace MyAiBuiltProject
     {
         private static async Task Main(string[] args)
         {
+            //Console.WriteLine("Starting MCP Server....");
             // Minimal MCP-compatible JSON-RPC server over stdio with one tool: echo
             var server = new McpJsonRpcServer();
             await server.RunAsync();
@@ -255,7 +256,7 @@ namespace MyAiBuiltProject
 
             if (string.IsNullOrWhiteSpace(toolName))
             {
-                await WriteErrorAsync(request.Id, -32602, "Missing tool name").ConfigureAwait(false);
+                await WriteErrorAsync(request.Id, -32602, "Missing tool name"). ConfigureAwait(false);
                 return;
             }
 
@@ -320,7 +321,7 @@ namespace MyAiBuiltProject
 
             if (string.IsNullOrWhiteSpace(uri))
             {
-                await WriteErrorAsync(request.Id, -32602, "Missing uri").ConfigureAwait(false);
+                await WriteErrorAsync(request.Id, -32602, "Missing uri"). ConfigureAwait(false);
                 return;
             }
 
@@ -416,7 +417,7 @@ namespace MyAiBuiltProject
             int headerCount =0;
             try
             {
-                // Read until CRLF CRLF
+                // Read until blank line (either CRLFCRLF or LFLF)
                 while (true)
                 {
                     if (headerCount == headerBuf.Length)
@@ -436,13 +437,15 @@ namespace MyAiBuiltProject
                     }
                     headerCount += n;
 
+                    // Detect header end: try CRLFCRLF first, then LFLF
                     int headerEnd = FindHeaderEnd(headerBuf, headerCount);
                     if (headerEnd >=0)
                     {
                         // Parse headers
                         var headerText = Encoding.ASCII.GetString(headerBuf,0, headerEnd);
                         int? contentLength = null;
-                        foreach (var line in headerText.Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
+                        // Split on either CRLF or LF to be robust
+                        foreach (var line in headerText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
                         {
                             const string prefix = "Content-Length:";
                             if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
@@ -459,7 +462,7 @@ namespace MyAiBuiltProject
                         int copied =0;
 
                         // Copy any bytes already read beyond header end
-                        int bodyStart = headerEnd +4; // skip CRLFCRLF
+                        int bodyStart = headerEnd + HeaderDelimiterLength(headerBuf, headerEnd);
                         int preRead = headerCount - bodyStart;
                         if (preRead >0)
                         {
@@ -491,7 +494,7 @@ namespace MyAiBuiltProject
 
             static int FindHeaderEnd(byte[] buffer, int count)
             {
-                // look for \r\n\r\n
+                // Try CRLFCRLF first
                 for (int i = Math.Max(0, count -4); i <= count -4; i++)
                 {
                     if (buffer[i] == (byte)'\r' && buffer[i +1] == (byte)'\n' && buffer[i +2] == (byte)'\r' && buffer[i +3] == (byte)'\n')
@@ -499,7 +502,21 @@ namespace MyAiBuiltProject
                         return i;
                     }
                 }
+                // Then try LFLF
+                for (int i = Math.Max(0, count -2); i <= count -2; i++)
+                {
+                    if (buffer[i] == (byte)'\n' && buffer[i +1] == (byte)'\n')
+                    {
+                        return i;
+                    }
+                }
                 return -1;
+            }
+
+            static int HeaderDelimiterLength(byte[] buffer, int headerEndIndex)
+            {
+                // Determine whether the delimiter was CRLFCRLF (length4) or LFLF (length2)
+                return buffer[headerEndIndex] == (byte)'\r' ?4 :2;
             }
         }
 
@@ -526,7 +543,7 @@ namespace MyAiBuiltProject
         private async Task WriteMessageAsync(object payload)
         {
             var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, _jsonOptions);
-            // Write header + body
+            // Write header + body (use CRLF per spec)
             var header = Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\n\r\n");
             await _stdout.WriteAsync(header,0, header.Length).ConfigureAwait(false);
             await _stdout.WriteAsync(bytes,0, bytes.Length).ConfigureAwait(false);
