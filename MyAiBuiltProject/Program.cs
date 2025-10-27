@@ -63,13 +63,12 @@ namespace MyAiBuiltProject
         {
             //await WriteStartupBannerAsync().ConfigureAwait(false);
 
-            var reader = new StreamReader(_stdin, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, bufferSize: 8192, leaveOpen: true);
             while (!cancellationToken.IsCancellationRequested)
             {
                 JsonRpcRequest? request = null;
                 try
                 {
-                    var messageBytes = await ReadContentLengthFramedMessageAsync(reader, cancellationToken).ConfigureAwait(false);
+                    var messageBytes = await ReadContentLengthFramedMessageAsync(cancellationToken).ConfigureAwait(false);
                     if (messageBytes is null)
                     {
                         // End of input
@@ -383,7 +382,7 @@ namespace MyAiBuiltProject
 
             if (!string.Equals(promptName, "greet", StringComparison.OrdinalIgnoreCase))
             {
-                await WriteErrorAsync(request.Id, -32601, $"Unknown prompt: {promptName}").ConfigureAwait(false);
+                await WriteErrorAsync(request.Id, -32601, $"Unknown prompt: {promptName}"). ConfigureAwait(false);
                 return;
             }
 
@@ -409,53 +408,98 @@ namespace MyAiBuiltProject
             await WriteResultAsync(request.Id, result).ConfigureAwait(false);
         }
 
-        private async ValueTask<ReadOnlyMemory<byte>?> ReadContentLengthFramedMessageAsync(StreamReader headerReader, CancellationToken ct)
+        private async ValueTask<ReadOnlyMemory<byte>?> ReadContentLengthFramedMessageAsync(CancellationToken ct)
         {
-            // Read headers like:
-            // Content-Length: <n>\r\n
-            int? contentLength = null;
-            string? line;
-            while ((line = await headerReader.ReadLineAsync().WaitAsync(ct).ConfigureAwait(false)) != null)
-            {
-                if (line.Length == 0)
-                {
-                    break; // end of headers
-                }
-
-                const string prefix = "Content-Length:";
-                if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    var value = line.Substring(prefix.Length).Trim();
-                    if (int.TryParse(value, out var len))
-                    {
-                        contentLength = len;
-                    }
-                }
-            }
-
-            if (contentLength is null)
-            {
-                return null; // End or invalid stream
-            }
-
-            var buffer = ArrayPool<byte>.Shared.Rent(contentLength.Value);
+            // Read raw headers and body from the same underlying stream to avoid buffering issues.
+            const int MaxHeaderBytes =64 *1024; // safety cap
+            byte[] headerBuf = ArrayPool<byte>.Shared.Rent(4096);
+            int headerCount =0;
             try
             {
-                int read = 0;
-                while (read < contentLength.Value)
+                // Read until CRLF CRLF
+                while (true)
                 {
-                    int n = await _stdin.ReadAsync(buffer.AsMemory(read, contentLength.Value - read), ct).ConfigureAwait(false);
-                    if (n == 0)
+                    if (headerCount == headerBuf.Length)
                     {
-                        return null; // EOF
+                        if (headerBuf.Length >= MaxHeaderBytes) throw new InvalidOperationException("Header too large");
+                        var newBuf = ArrayPool<byte>.Shared.Rent(headerBuf.Length *2);
+                        Buffer.BlockCopy(headerBuf,0, newBuf,0, headerCount);
+                        ArrayPool<byte>.Shared.Return(headerBuf);
+                        headerBuf = newBuf;
                     }
-                    read += n;
+
+                    int n = await _stdin.ReadAsync(headerBuf.AsMemory(headerCount, headerBuf.Length - headerCount), ct).ConfigureAwait(false);
+                    if (n ==0)
+                    {
+                        if (headerCount ==0) return null; // EOF before any header
+                        throw new EndOfStreamException("Unexpected EOF while reading headers");
+                    }
+                    headerCount += n;
+
+                    int headerEnd = FindHeaderEnd(headerBuf, headerCount);
+                    if (headerEnd >=0)
+                    {
+                        // Parse headers
+                        var headerText = Encoding.ASCII.GetString(headerBuf,0, headerEnd);
+                        int? contentLength = null;
+                        foreach (var line in headerText.Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            const string prefix = "Content-Length:";
+                            if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                            {
+                                var value = line.Substring(prefix.Length).Trim();
+                                if (int.TryParse(value, out var len)) contentLength = len;
+                            }
+                        }
+
+                        if (contentLength is null) return null; // treat as end/invalid
+
+                        int bodyLength = contentLength.Value;
+                        var body = ArrayPool<byte>.Shared.Rent(bodyLength);
+                        int copied =0;
+
+                        // Copy any bytes already read beyond header end
+                        int bodyStart = headerEnd +4; // skip CRLFCRLF
+                        int preRead = headerCount - bodyStart;
+                        if (preRead >0)
+                        {
+                            int toCopy = Math.Min(preRead, bodyLength);
+                            Buffer.BlockCopy(headerBuf, bodyStart, body,0, toCopy);
+                            copied += toCopy;
+                        }
+
+                        // Read remaining body bytes
+                        while (copied < bodyLength)
+                        {
+                            int m = await _stdin.ReadAsync(body.AsMemory(copied, bodyLength - copied), ct).ConfigureAwait(false);
+                            if (m ==0) throw new EndOfStreamException("Unexpected EOF while reading body");
+                            copied += m;
+                        }
+
+                        // Return a tight array
+                        var result = new byte[bodyLength];
+                        Buffer.BlockCopy(body,0, result,0, bodyLength);
+                        ArrayPool<byte>.Shared.Return(body);
+                        return result;
+                    }
                 }
-                return new ReadOnlyMemory<byte>(buffer, 0, contentLength.Value).ToArray();
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(buffer);
+                ArrayPool<byte>.Shared.Return(headerBuf);
+            }
+
+            static int FindHeaderEnd(byte[] buffer, int count)
+            {
+                // look for \r\n\r\n
+                for (int i = Math.Max(0, count -4); i <= count -4; i++)
+                {
+                    if (buffer[i] == (byte)'\r' && buffer[i +1] == (byte)'\n' && buffer[i +2] == (byte)'\r' && buffer[i +3] == (byte)'\n')
+                    {
+                        return i;
+                    }
+                }
+                return -1;
             }
         }
 
@@ -484,15 +528,15 @@ namespace MyAiBuiltProject
             var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, _jsonOptions);
             // Write header + body
             var header = Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\n\r\n");
-            await _stdout.WriteAsync(header, 0, header.Length).ConfigureAwait(false);
-            await _stdout.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
+            await _stdout.WriteAsync(header,0, header.Length).ConfigureAwait(false);
+            await _stdout.WriteAsync(bytes,0, bytes.Length).ConfigureAwait(false);
             await _stdout.FlushAsync().ConfigureAwait(false);
         }
 
         private async Task WriteStderrAsync(string text)
         {
             var bytes = Encoding.UTF8.GetBytes(text);
-            await _stderr.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
+            await _stderr.WriteAsync(bytes,0, bytes.Length).ConfigureAwait(false);
             await _stderr.FlushAsync().ConfigureAwait(false);
         }
     }

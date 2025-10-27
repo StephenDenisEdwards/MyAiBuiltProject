@@ -10,6 +10,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.mcp.json = .mcp.json
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "McpProbe", "McpProbe\McpProbe.csproj", "{6EBFA577-8650-0991-9E47-6C118E66E588}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +22,10 @@ Global
 		{509453CE-FA8C-4E01-8988-36ACF9E21052}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{509453CE-FA8C-4E01-8988-36ACF9E21052}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{509453CE-FA8C-4E01-8988-36ACF9E21052}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6EBFA577-8650-0991-9E47-6C118E66E588}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6EBFA577-8650-0991-9E47-6C118E66E588}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6EBFA577-8650-0991-9E47-6C118E66E588}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6EBFA577-8650-0991-9E47-6C118E66E588}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
