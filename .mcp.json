@@ -5,9 +5,18 @@
       "type": "stdio",
       "command": "dotnet",
       "args": [
-        "C:\\Users\\steph\\source\\repos\\AI\\sample\\MyAiBuiltProject\\MyAiBuiltProject\\bin\\Debug\\net9.0\\MyAiBuiltProject.dll"
+        "C:\\Users\\steph\\source\\repos\\AI\\sample\\MyAiBuiltProject\\MyAiBuiltProject\\bin\\Release\\net9.0\\publish\\MyAiBuiltProject.dll"
       ],
       "env": {}
+    },
+    "SampleMcpServer": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "C:\\Users\\steph\\source\\repos\\AI\\sample\\MyAiBuiltProject\\SampleMcpServer"
+      ]
     }
   }
 }

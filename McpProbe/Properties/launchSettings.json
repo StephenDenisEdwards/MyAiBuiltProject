@@ -1,28 +1,28 @@
 {
- "profiles": {
- "McpProbe (debug server dll)": {
- "commandName": "Project",
- "workingDirectory": "$(ProjectDir)",
- "commandLineArgs": "..\\MyAiBuiltProject\\bin\\Debug\\net9.0\\MyAiBuiltProject.dll",
- "environmentVariables": {
- "DOTNET_ENVIRONMENT": "Development"
- }
- },
- "McpProbe (debug server exe)": {
- "commandName": "Project",
- "workingDirectory": "$(ProjectDir)",
- "commandLineArgs": "..\\MyAiBuiltProject\\bin\\Debug\\net9.0\\MyAiBuiltProject.exe",
- "environmentVariables": {
- "DOTNET_ENVIRONMENT": "Development"
- }
- },
- "McpProbe (use published)": {
- "commandName": "Project",
- "workingDirectory": "$(ProjectDir)",
- "commandLineArgs": "..\\MyAiBuiltProject\\bin\\Release\\net9.0\\publish\\MyAiBuiltProject.dll",
- "environmentVariables": {
- "DOTNET_ENVIRONMENT": "Production"
- }
- }
- }
+  "profiles": {
+    "McpProbe (debug server dll)": {
+      "commandName": "Project",
+      "workingDirectory": "$(ProjectDir)",
+      "commandLineArgs": "..\\MyAiBuiltProject\\bin\\Debug\\net9.0\\MyAiBuiltProject.dll",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    },
+    "McpProbe (debug server exe)": {
+      "commandName": "Project",
+      "workingDirectory": "$(ProjectDir)",
+      "commandLineArgs": "..\\MyAiBuiltProject\\bin\\Debug\\net9.0\\MyAiBuiltProject.exe",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    },
+    "McpProbe (use published)": {
+      "commandName": "Project",
+      "workingDirectory": "$(ProjectDir)",
+      "commandLineArgs": "..\\MyAiBuiltProject\\bin\\Release\\net9.0\\publish\\MyAiBuiltProject.dll",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Production"
+      }
+    }
+  }
 }

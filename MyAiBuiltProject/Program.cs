@@ -12,7 +12,6 @@ namespace MyAiBuiltProject
     {
         private static async Task Main(string[] args)
         {
-            //Console.WriteLine("Starting MCP Server....");
             // Minimal MCP-compatible JSON-RPC server over stdio with one tool: echo
             var server = new McpJsonRpcServer();
             await server.RunAsync();
@@ -62,6 +61,8 @@ namespace MyAiBuiltProject
 
         public async Task RunAsync(CancellationToken cancellationToken = default)
         {
+            // Diagnostic note to aid hosts (stderr only)
+            await WriteStderrAsync($"[MCP] {ServerName} v{ServerVersion} starting. Waiting for initialize...\n").ConfigureAwait(false);
             //await WriteStartupBannerAsync().ConfigureAwait(false);
 
             while (!cancellationToken.IsCancellationRequested)
@@ -79,78 +80,96 @@ namespace MyAiBuiltProject
                     request = JsonSerializer.Deserialize<JsonRpcRequest>(messageBytes.Value.Span, _jsonOptions);
                     if (request is null)
                     {
-                        await WriteErrorAsync(null, -32700, "Parse error").ConfigureAwait(false);
+                        // Parse error: if request id is unknown/null, do not respond (notification semantics)
+                        await WriteStderrAsync("[MCP] Parse error (null request)\n").ConfigureAwait(false);
                         continue;
                     }
+
+                    var isNotification = request.Id is null;
+                    await WriteStderrAsync($"[MCP] <= {request.Method} (notification: {isNotification})\n").ConfigureAwait(false);
 
                     switch (request.Method)
                     {
                         case "ping":
-                            await WriteResultAsync(request.Id, new { ok = true }).ConfigureAwait(false);
+                            if (!isNotification)
+                                await WriteResultAsync(request.Id, new { ok = true }).ConfigureAwait(false);
                             break;
 
                         case "initialize":
-                            // Minimal MCP initialize response with tools, resources, and prompts capabilities
-                            var initResult = new
+                            if (!isNotification)
                             {
-                                protocolVersion = ProtocolVersionLabel, // MCP protocol version label
-                                serverInfo = new { name = ServerName, version = ServerVersion },
-                                capabilities = new
+                                // Minimal MCP initialize response with tools, resources, and prompts capabilities
+                                var initResult = new
                                 {
-                                    tools = new { },
-                                    resources = new { },
-                                    prompts = new { }
-                                }
-                            };
-                            await WriteResultAsync(request.Id, initResult).ConfigureAwait(false);
+                                    protocolVersion = ProtocolVersionLabel, // MCP protocol version label
+                                    serverInfo = new { name = ServerName, version = ServerVersion },
+                                    capabilities = new
+                                    {
+                                        tools = new { },
+                                        resources = new { },
+                                        prompts = new { }
+                                    }
+                                };
+                                await WriteResultAsync(request.Id, initResult).ConfigureAwait(false);
+                            }
                             break;
 
                         case "tools/list":
-                            var toolsList = new
+                            if (!isNotification)
                             {
-                                tools = new object[]
+                                var toolsList = new
                                 {
-                                    new
+                                    tools = new object[]
                                     {
-                                        name = "echo",
-                                        description = "Echo back a provided message.",
-                                        inputSchema = new
+                                        new
                                         {
-                                            type = "object",
-                                            properties = new
+                                            name = "echo",
+                                            description = "Echo back a provided message.",
+                                            inputSchema = new
                                             {
-                                                message = new { type = "string", description = "Text to echo back" }
-                                            },
-                                            required = new[] { "message" }
+                                                type = "object",
+                                                properties = new
+                                                {
+                                                    message = new { type = "string", description = "Text to echo back" }
+                                                },
+                                                required = new[] { "message" }
+                                            }
                                         }
                                     }
-                                }
-                            };
-                            await WriteResultAsync(request.Id, toolsList).ConfigureAwait(false);
+                                };
+                                await WriteResultAsync(request.Id, toolsList).ConfigureAwait(false);
+                            }
                             break;
 
                         case "tools/call":
-                            await HandleToolsCallAsync(request).ConfigureAwait(false);
+                            if (!isNotification)
+                                await HandleToolsCallAsync(request).ConfigureAwait(false);
                             break;
 
                         case "resources/list":
-                            await HandleResourcesListAsync(request).ConfigureAwait(false);
+                            if (!isNotification)
+                                await HandleResourcesListAsync(request).ConfigureAwait(false);
                             break;
 
                         case "resources/read":
-                            await HandleResourcesReadAsync(request).ConfigureAwait(false);
+                            if (!isNotification)
+                                await HandleResourcesReadAsync(request).ConfigureAwait(false);
                             break;
 
                         case "prompts/list":
-                            await HandlePromptsListAsync(request).ConfigureAwait(false);
+                            if (!isNotification)
+                                await HandlePromptsListAsync(request).ConfigureAwait(false);
                             break;
 
                         case "prompts/get":
-                            await HandlePromptsGetAsync(request).ConfigureAwait(false);
+                            if (!isNotification)
+                                await HandlePromptsGetAsync(request).ConfigureAwait(false);
                             break;
 
                         default:
-                            await WriteErrorAsync(request.Id, -32601, $"Method not found: {request.Method}").ConfigureAwait(false);
+                            // Unknown method: ignore notifications, respond with error for requests
+                            if (!isNotification)
+                                await WriteErrorAsync(request.Id, -32601, $"Method not found: {request.Method}").ConfigureAwait(false);
                             break;
                     }
                 }
@@ -161,7 +180,11 @@ namespace MyAiBuiltProject
                 catch (Exception ex)
                 {
                     await WriteStderrAsync($"[MCP] Unhandled exception: {ex}\n").ConfigureAwait(false);
-                    await WriteErrorAsync(request?.Id, -32603, "Internal error").ConfigureAwait(false);
+                    // Don't respond to notifications on error
+                    if (request?.Id is not null)
+                    {
+                        await WriteErrorAsync(request!.Id, -32603, "Internal error").ConfigureAwait(false);
+                    }
                 }
             }
         }
@@ -307,7 +330,7 @@ namespace MyAiBuiltProject
         {
             if (request.Params is null)
             {
-                await WriteErrorAsync(request.Id, -32602, "Invalid params").ConfigureAwait(false);
+                await WriteErrorAsync(request.Id, -32602, "Invalid params"). ConfigureAwait(false);
                 return;
             }
 
@@ -543,8 +566,8 @@ namespace MyAiBuiltProject
         private async Task WriteMessageAsync(object payload)
         {
             var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, _jsonOptions);
-            // Write header + body (use CRLF per spec)
-            var header = Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\n\r\n");
+            // Write headers + body (add Content-Type for host compatibility)
+            var header = Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\nContent-Type: application/json; charset=utf-8\r\n\r\n");
             await _stdout.WriteAsync(header,0, header.Length).ConfigureAwait(false);
             await _stdout.WriteAsync(bytes,0, bytes.Length).ConfigureAwait(false);
             await _stdout.FlushAsync().ConfigureAwait(false);
