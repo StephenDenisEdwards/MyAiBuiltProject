@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "McpProbe", "McpProbe\McpPro
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleMcpServer", "SampleMcpServer\SampleMcpServer.csproj", "{68AF086E-D678-2E8B-97A9-0FBEAD30CFA1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuickstartClient", "QuickstartClient\QuickstartClient.csproj", "{6A649BDE-A5F1-D801-DABB-62BF6E21A35E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{68AF086E-D678-2E8B-97A9-0FBEAD30CFA1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{68AF086E-D678-2E8B-97A9-0FBEAD30CFA1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{68AF086E-D678-2E8B-97A9-0FBEAD30CFA1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A649BDE-A5F1-D801-DABB-62BF6E21A35E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A649BDE-A5F1-D801-DABB-62BF6E21A35E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A649BDE-A5F1-D801-DABB-62BF6E21A35E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A649BDE-A5F1-D801-DABB-62BF6E21A35E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "QuickstartClient - SampleMcpServer": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\steph\\source\\repos\\AI\\sample\\MCP\\MyAiBuiltProject\\SampleMcpServer\\SampleMcpServer.csproj",
+      "dotnetRunMessages": true
+    }
+  }
+}
