@@ -3,7 +3,8 @@
   "profiles": {
     "QuickstartClient - SampleMcpServer": {
       "commandName": "Project",
-      "commandLineArgs": "C:\\Users\\steph\\source\\repos\\AI\\sample\\MCP\\MyAiBuiltProject\\SampleMcpServer\\SampleMcpServer.csproj",
+      "workingDirectory": "$(ProjectDir)",
+      "commandLineArgs": "\"..\\SampleMcpServer\\SampleMcpServer.csproj\"",
       "dotnetRunMessages": true
     }
   }
