@@ -24,6 +24,7 @@
     <PackageVersion>0.1.0-beta</PackageVersion>
     <PackageTags>AI; MCP; server; stdio</PackageTags>
     <Description>An MCP server using the MCP C# SDK.</Description>
+    <UserSecretsId>31ad54ab-9f90-4fcc-b2b7-ba89c7487d7d</UserSecretsId>
   </PropertyGroup>
 
   <!-- Include additional files for browsing the MCP server. -->

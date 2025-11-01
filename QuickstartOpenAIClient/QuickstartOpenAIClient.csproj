@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+ <PropertyGroup>
+ <OutputType>Exe</OutputType>
+ <TargetFramework>net9.0</TargetFramework>
+ <ImplicitUsings>enable</ImplicitUsings>
+ <Nullable>enable</Nullable>
+ <UserSecretsId>6f3b0a7f-8f8e-4e0b-8b2e-6c77a8b3a3f2</UserSecretsId>
+ <WarningsAsErrors>CS0612;CS0618</WarningsAsErrors>
+ </PropertyGroup>
+
+ <ItemGroup>
+ <PackageReference Include="Microsoft.Extensions.AI" Version="9.10.1" />
+ <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="9.10.1-preview.*" />
+ <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.10" />
+ <PackageReference Include="ModelContextProtocol" Version="0.4.0-preview.3" />
+ <PackageReference Include="OpenAI" Version="*" />
+ </ItemGroup>
+
+</Project>

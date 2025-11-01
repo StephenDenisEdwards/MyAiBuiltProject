@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "QuickstartOpenAIClient - SampleMcpServer": {
+      "commandName": "Project",
+      "workingDirectory": "$(ProjectDir)",
+      "commandLineArgs": "\"..\\SampleMcpServer\\SampleMcpServer.csproj\"",
+      "dotnetRunMessages": true
+    }
+  }
+}
